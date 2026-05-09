@@ -269,14 +269,31 @@ def main():
         items = person_items.get(person, [])
         context = person_context.get(person)
         summary = build_summary(person, role_row, category_row, items, context)
+        direct_examples = [
+            {"doc_id": item["doc_id"], "sentence": snippet(item["sentence"]), "crimes": item["crimes"]}
+            for item in sorted(items, key=lambda item: (-item["score"], item["doc_id"]))[:3]
+        ]
+        context_examples = []
+        seen_context = set()
+        for item in (context.get("mentions", []) if context else []):
+            key = (item["doc_id"], item["sentence"])
+            if key in seen_context:
+                continue
+            seen_context.add(key)
+            context_examples.append(
+                {
+                    "doc_id": item["doc_id"],
+                    "sentence": snippet(item["sentence"]),
+                }
+            )
+            if len(context_examples) >= 3:
+                break
         output[person] = {
             "summary": summary,
             "adjudicated": adjudicated_text(person, role_row),
             "role": role_label(role_row),
-            "top_examples": [
-                {"doc_id": item["doc_id"], "sentence": snippet(item["sentence"]), "crimes": item["crimes"]}
-                for item in sorted(items, key=lambda item: (-item["score"], item["doc_id"]))[:3]
-            ],
+            "top_examples": direct_examples,
+            "context_examples": context_examples,
         }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

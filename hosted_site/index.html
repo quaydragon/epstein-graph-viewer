@@ -509,6 +509,18 @@
         lines.push("<br/><strong>Allegations made in linked documents</strong><br/>None matched in the current extracted-text scan.");
       }
 
+      if (summaryEntry && Array.isArray(summaryEntry.top_examples) && summaryEntry.top_examples.length) {
+        const direct = summaryEntry.top_examples
+          .map((item) => `[${escapeHtml(item.doc_id)}] ${escapeHtml(item.sentence)}`)
+          .join("<br/><br/>");
+        lines.push(`<br/><strong>Direct allegation excerpts</strong><br/>${direct}`);
+      } else if (summaryEntry && Array.isArray(summaryEntry.context_examples) && summaryEntry.context_examples.length) {
+        const contextual = summaryEntry.context_examples
+          .map((item) => `[${escapeHtml(item.doc_id)}] ${escapeHtml(item.sentence)}`)
+          .join("<br/><br/>");
+        lines.push(`<br/><strong>Contextual excerpts from linked documents</strong><br/>${contextual}`);
+      }
+
       lines.push("These are document-derived allegation/context signals, not adjudicated findings.");
       return lines.join("<br/>");
     }
