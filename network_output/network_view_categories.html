@@ -421,16 +421,17 @@
 
     function renderTraffic() {
       if (trackedPageLoads == null) {
-        traffic.innerHTML = "Public page-load tracking: pending";
+        traffic.style.display = "none";
         return;
       }
+      traffic.style.display = "block";
       traffic.innerHTML = `Public page loads tracked on live site: <strong>${trackedPageLoads}</strong>`;
     }
 
     async function trackPublicPageLoad() {
       if (!location.hostname.endsWith("github.io")) {
         trackedPageLoads = null;
-        traffic.innerHTML = "Public page-load tracking only runs on the live GitHub Pages site.";
+        renderTraffic();
         return;
       }
 
@@ -442,7 +443,8 @@
         trackedPageLoads = Number(data.value || 0);
         renderTraffic();
       } catch (err) {
-        traffic.innerHTML = "Public page-load tracking unavailable right now.";
+        trackedPageLoads = null;
+        renderTraffic();
       }
     }
 
