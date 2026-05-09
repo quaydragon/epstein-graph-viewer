@@ -385,10 +385,48 @@
       return roleMap.get(normalizeKey(label)) || { victim: 0, perpetrator: 0, complicit: 0, witness: 0, lawyer: 0, unknown: 1 };
     }
 
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function allegationSummaryHtml(personLabel) {
+      const counts = categoryCountsForNode(personLabel);
+      const roleObj = roleForNode(personLabel);
+      const roleKey = roleLabel(roleObj);
+      const roleCfg = ROLE_CONFIG[roleKey] || ROLE_CONFIG.unknown;
+      const top = topCategories(counts);
+
+      const lines = [
+        `<strong>${escapeHtml(personLabel)}</strong>`,
+        `Role: <strong>${roleCfg.label}</strong>`,
+      ];
+
+      if (counts) {
+        lines.push(`Documents in corpus: <strong>${Number(counts.doc_count || 0)}</strong>`);
+      }
+
+      if (top.length) {
+        const summary = top
+          .map(([k, v]) => `${CATEGORY_CONFIG[k].label}: <strong>${v}</strong>`)
+          .join(" | ");
+        lines.push(`Heuristic allegation summary: ${summary}`);
+      } else {
+        lines.push("Heuristic allegation summary: none matched in current category scan.");
+      }
+
+      lines.push("These are keyword-based allegation/context signals, not adjudicated findings.");
+      return lines.join("<br/>");
+    }
+
     function renderDocListForPerson(personLabel) {
       const entry = personDocs.get(personLabel);
       if (!entry || !entry.docs || !entry.docs.length) {
-        docList.innerHTML = `<strong>${personLabel}</strong><br/>No linked source files in index.`;
+        docList.innerHTML = `${allegationSummaryHtml(personLabel)}<br/><br/>No linked source files in index.`;
         return;
       }
       const maxItems = 80;
@@ -397,7 +435,7 @@
         .map((d) => `<a href="${d.path}" target="_blank" rel="noopener">${d.doc_id}</a>`)
         .join("<br/>");
       const extra = entry.docs.length > maxItems ? `<br/>...and ${entry.docs.length - maxItems} more` : "";
-      docList.innerHTML = `<strong>${personLabel}</strong><br/>Files: ${entry.count}<br/>${links}${extra}`;
+      docList.innerHTML = `${allegationSummaryHtml(personLabel)}<br/><br/>Files: ${entry.count}<br/>${links}${extra}`;
     }
 
     function passRoleFilter(roleObj, filterValue) {
@@ -516,7 +554,17 @@
       let selectedNodes = sortedNodes.slice(0, maxNodes);
 
       if (query) {
-        selectedNodes = selectedNodes.filter((n) => n.label.toLowerCase().includes(query));
+        const matchedNodes = allNodes.filter((n) => n.label.toLowerCase().includes(query));
+        const matchedIds = new Set(matchedNodes.map((n) => n.id));
+        const expandedIds = new Set(matchedIds);
+
+        allEdges.forEach((e) => {
+          if (e.weight < minWeight) return;
+          if (matchedIds.has(e.source)) expandedIds.add(e.target);
+          if (matchedIds.has(e.target)) expandedIds.add(e.source);
+        });
+
+        selectedNodes = allNodes.filter((n) => expandedIds.has(n.id));
       }
 
       selectedNodes = selectedNodes.filter((n) => {
