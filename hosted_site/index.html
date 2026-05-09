@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Epstein Name Network - Category View</title>
   <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+  <script data-goatcounter="https://quay.goatcounter.com/count"
+          async src="https://gc.zgo.at/count.js"></script>
   <style>
     :root {
       --bg: #f7f6f2;
@@ -119,13 +121,6 @@
       font-size: 0.84rem;
       color: var(--muted);
       line-height: 1.45;
-    }
-
-    .traffic {
-      margin-top: 10px;
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.35;
     }
 
     .doc-list {
@@ -304,7 +299,6 @@
 
     <div class="legend" id="legend"></div>
     <div class="stats" id="stats">Loading graph data...</div>
-    <div class="traffic" id="traffic">Public page-load tracking: pending</div>
     <div class="doc-list" id="docList">Click a node to view linked source files.</div>
 
     <p class="note">
@@ -347,11 +341,8 @@
     let roleMap = new Map();
     let personDocs = new Map();
     let personSummaries = new Map();
-    let trackedPageLoads = null;
     let network;
     const pieCache = new Map();
-    const COUNTAPI_NAMESPACE = "quaydragon-epstein-graph-viewer";
-    const COUNTAPI_KEY = "network-view-categories";
 
     const minWeightInput = document.getElementById("minWeight");
     const minWeightVal = document.getElementById("minWeightVal");
@@ -361,7 +352,6 @@
     const minCatHitsInput = document.getElementById("minCatHits");
     const stats = document.getElementById("stats");
     const docList = document.getElementById("docList");
-    const traffic = document.getElementById("traffic");
     const desktopBanner = document.getElementById("desktopBanner");
     const desktopBannerDismiss = document.getElementById("desktopBannerDismiss");
     const DESKTOP_BANNER_KEY = "epsteinGraphDesktopBannerDismissed";
@@ -417,35 +407,6 @@
         });
         return obj;
       });
-    }
-
-    function renderTraffic() {
-      if (trackedPageLoads == null) {
-        traffic.style.display = "none";
-        return;
-      }
-      traffic.style.display = "block";
-      traffic.innerHTML = `Public page loads tracked on live site: <strong>${trackedPageLoads}</strong>`;
-    }
-
-    async function trackPublicPageLoad() {
-      if (!location.hostname.endsWith("github.io")) {
-        trackedPageLoads = null;
-        renderTraffic();
-        return;
-      }
-
-      try {
-        const url = `https://api.countapi.xyz/hit/${COUNTAPI_NAMESPACE}/${COUNTAPI_KEY}`;
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        trackedPageLoads = Number(data.value || 0);
-        renderTraffic();
-      } catch (err) {
-        trackedPageLoads = null;
-        renderTraffic();
-      }
     }
 
     async function fetchTextWithFallback(filename) {
@@ -942,7 +903,6 @@
     });
 
     maybeShowDesktopBanner();
-    trackPublicPageLoad();
     loadData();
   </script>
 </body>
