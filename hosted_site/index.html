@@ -121,6 +121,13 @@
       line-height: 1.45;
     }
 
+    .traffic {
+      margin-top: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
     .doc-list {
       margin-top: 10px;
       border-top: 1px solid #e6e2d8;
@@ -297,6 +304,7 @@
 
     <div class="legend" id="legend"></div>
     <div class="stats" id="stats">Loading graph data...</div>
+    <div class="traffic" id="traffic">Public page-load tracking: pending</div>
     <div class="doc-list" id="docList">Click a node to view linked source files.</div>
 
     <p class="note">
@@ -339,8 +347,11 @@
     let roleMap = new Map();
     let personDocs = new Map();
     let personSummaries = new Map();
+    let trackedPageLoads = null;
     let network;
     const pieCache = new Map();
+    const COUNTAPI_NAMESPACE = "quaydragon-epstein-graph-viewer";
+    const COUNTAPI_KEY = "network-view-categories";
 
     const minWeightInput = document.getElementById("minWeight");
     const minWeightVal = document.getElementById("minWeightVal");
@@ -350,6 +361,7 @@
     const minCatHitsInput = document.getElementById("minCatHits");
     const stats = document.getElementById("stats");
     const docList = document.getElementById("docList");
+    const traffic = document.getElementById("traffic");
     const desktopBanner = document.getElementById("desktopBanner");
     const desktopBannerDismiss = document.getElementById("desktopBannerDismiss");
     const DESKTOP_BANNER_KEY = "epsteinGraphDesktopBannerDismissed";
@@ -405,6 +417,33 @@
         });
         return obj;
       });
+    }
+
+    function renderTraffic() {
+      if (trackedPageLoads == null) {
+        traffic.innerHTML = "Public page-load tracking: pending";
+        return;
+      }
+      traffic.innerHTML = `Public page loads tracked on live site: <strong>${trackedPageLoads}</strong>`;
+    }
+
+    async function trackPublicPageLoad() {
+      if (!location.hostname.endsWith("github.io")) {
+        trackedPageLoads = null;
+        traffic.innerHTML = "Public page-load tracking only runs on the live GitHub Pages site.";
+        return;
+      }
+
+      try {
+        const url = `https://api.countapi.xyz/hit/${COUNTAPI_NAMESPACE}/${COUNTAPI_KEY}`;
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        trackedPageLoads = Number(data.value || 0);
+        renderTraffic();
+      } catch (err) {
+        traffic.innerHTML = "Public page-load tracking unavailable right now.";
+      }
     }
 
     async function fetchTextWithFallback(filename) {
@@ -901,6 +940,7 @@
     });
 
     maybeShowDesktopBanner();
+    trackPublicPageLoad();
     loadData();
   </script>
 </body>
