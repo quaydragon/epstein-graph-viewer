@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local working data and downloads
+epstein-docs/
+markramm-epsteinfiles/
+network_output/
+source_docs/
+writing/
+http.server.8766.pid
+

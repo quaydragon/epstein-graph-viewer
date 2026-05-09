@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epstein Name Network - Category View</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f6f2;
+      --panel: #ffffff;
+      --ink: #1c2428;
+      --muted: #5b6970;
+      --accent: #0f6b66;
+      --edge: #9eb2bb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 0%, #fff8eb 0%, var(--bg) 45%, #ebefe6 100%);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid #e6e2d8;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+    }
+
+    .sub {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+
+    .control { margin-bottom: 12px; }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    input[type="range"], input[type="number"], input[type="text"], select { width: 100%; }
+
+    input[type="number"], input[type="text"], select {
+      border: 1px solid #d3d8db;
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: 0.9rem;
+      background: #fff;
+    }
+
+    .value {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 4px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+
+    button.secondary { background: #5f6f78; }
+
+    .legend {
+      margin: 10px 0 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 0.8rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--ink);
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid #c7c7c7;
+      flex: 0 0 auto;
+    }
+
+    .stats {
+      margin-top: 10px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .doc-list {
+      margin-top: 10px;
+      border-top: 1px solid #e6e2d8;
+      padding-top: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .doc-list a {
+      color: #0b5ea8;
+      text-decoration: none;
+    }
+
+    .doc-list a:hover {
+      text-decoration: underline;
+    }
+
+    .category-filter {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .category-filter label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .category-filter input[type="checkbox"] {
+      margin: 0;
+    }
+
+    #network {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .note {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+
+      .panel {
+        border-right: 0;
+        border-bottom: 1px solid #e6e2d8;
+      }
+
+      #network { height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <h1>Category-Coded Name Network</h1>
+    <p class="sub">New view. Original viewer remains unchanged. Multi-category nodes are rendered as pie slices.</p>
+
+    <div class="control">
+      <label for="minWeight">Minimum edge weight</label>
+      <input id="minWeight" type="range" min="1" max="20" value="2" />
+      <div class="value" id="minWeightVal">2</div>
+    </div>
+
+    <div class="control">
+      <label for="maxNodes">Max nodes to render</label>
+      <input id="maxNodes" type="number" min="100" max="9000" step="100" value="1200" />
+    </div>
+
+    <div class="control">
+      <label for="search">Focus by name (contains)</label>
+      <input id="search" type="text" placeholder="e.g., epstein" />
+    </div>
+
+    <div class="control">
+      <label for="roleFilter">Role filter</label>
+      <select id="roleFilter">
+        <option value="all">All</option>
+        <option value="victim">Victim</option>
+        <option value="perpetrator">Perpetrator</option>
+        <option value="complicit">Complicit</option>
+        <option value="witness">Witness</option>
+        <option value="lawyer">Lawyer</option>
+        <option value="unknown">Unknown</option>
+        <option value="labeled">Any labeled role</option>
+      </select>
+    </div>
+
+    <div class="control">
+      <label for="minCatHits">Minimum category hits on person (0 keeps all)</label>
+      <input id="minCatHits" type="number" min="0" max="5000" step="1" value="0" />
+    </div>
+
+    <div class="control">
+      <label>Category filter</label>
+      <div class="category-filter" id="categoryFilter"></div>
+      <div class="value">Nodes must match at least one checked category.</div>
+    </div>
+
+    <div class="btn-row">
+      <button id="applyBtn">Apply Filters</button>
+      <button id="fitBtn" class="secondary">Fit View</button>
+      <button id="stabilizeBtn" class="secondary">Stabilize</button>
+    </div>
+
+    <div class="legend" id="legend"></div>
+    <div class="stats" id="stats">Loading graph data...</div>
+    <div class="doc-list" id="docList">Click a node to view linked source files.</div>
+
+    <p class="note">
+      Category tags come from keyword matches in document text and are heuristic, not adjudicated findings.<br />
+      Run with local server: <code>python3 -m http.server 8765 --bind 127.0.0.1</code>
+    </p>
+  </section>
+
+  <div id="network"></div>
+
+  <script>
+    const CATEGORY_CONFIG = {
+      sex_trafficking: { label: "Sex Trafficking", color: "#f28c28" },
+      rape: { label: "Rape", color: "#ffe34d" },
+      murder: { label: "Murder", color: "#d62828" },
+      cannibalism: { label: "Cannibalism", color: "#111111" },
+      politics: { label: "Politics", color: "#7b2cbf" },
+      victim: { label: "Victim", color: "#1f6fd6" },
+      lawyer: { label: "Lawyer", color: "#00bcd4" },
+      science: { label: "Science", color: "#2a9d8f" },
+      philanthropy: { label: "Philanthropy", color: "#ff66b3" },
+    };
+    const ROLE_CONFIG = {
+      perpetrator: { label: "Perpetrator", color: "#c65f3f" },
+      complicit: { label: "Complicit", color: "#b22222" },
+      victim: { label: "Victim", color: "#1f6fd6" },
+      witness: { label: "Witness", color: "#8b5cf6" },
+      lawyer: { label: "Lawyer", color: "#00bcd4" },
+      unknown: { label: "Unknown", color: "#9aa1a6" },
+    };
+
+    let allNodes = [];
+    let allEdges = [];
+    let categoryMap = new Map();
+    let roleMap = new Map();
+    let personDocs = new Map();
+    let network;
+    const pieCache = new Map();
+
+    const minWeightInput = document.getElementById("minWeight");
+    const minWeightVal = document.getElementById("minWeightVal");
+    const maxNodesInput = document.getElementById("maxNodes");
+    const searchInput = document.getElementById("search");
+    const roleFilterInput = document.getElementById("roleFilter");
+    const minCatHitsInput = document.getElementById("minCatHits");
+    const stats = document.getElementById("stats");
+    const docList = document.getElementById("docList");
+
+    minWeightInput.addEventListener("input", () => {
+      minWeightVal.textContent = minWeightInput.value;
+    });
+
+    function parseCsv(text) {
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines.shift().split(",");
+      return lines.map((line) => {
+        const out = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (ch === "," && !inQuotes) {
+            out.push(cur);
+            cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        out.push(cur);
+        const obj = {};
+        header.forEach((h, idx) => {
+          obj[h] = out[idx] || "";
+        });
+        return obj;
+      });
+    }
+
+    async function fetchTextWithFallback(filename) {
+      const attempts = [
+        filename,
+        `./${filename}`,
+        `http://127.0.0.1:8765/${filename}`,
+      ];
+      let lastError = null;
+      for (const url of attempts) {
+        try {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) {
+            lastError = new Error(`HTTP ${res.status} for ${url}`);
+            continue;
+          }
+          return await res.text();
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error(`Failed to fetch ${filename}`);
+    }
+
+    function normalizeKey(value) {
+      return (value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function renderLegend() {
+      const legend = document.getElementById("legend");
+      const categoryLegend = Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => {
+        return `<div class="legend-item"><span class="swatch" style="background:${cfg.color}"></span>${cfg.label}</div>`;
+      }).join("");
+      const roleLegend = Object.entries(ROLE_CONFIG).map(([key, cfg]) => {
+        return `<div class="legend-item"><span class="swatch" style="background:${cfg.color}"></span>Role: ${cfg.label}</div>`;
+      }).join("");
+      legend.innerHTML = categoryLegend + roleLegend;
+    }
+
+    function renderCategoryFilter() {
+      const root = document.getElementById("categoryFilter");
+      root.innerHTML = Object.entries(CATEGORY_CONFIG)
+        .map(([key, cfg]) => `<label><input type="checkbox" value="${key}" checked />${cfg.label}</label>`)
+        .join("");
+    }
+
+    function selectedCategoryKeys() {
+      return Array.from(document.querySelectorAll('#categoryFilter input[type="checkbox"]:checked'))
+        .map((el) => el.value);
+    }
+
+    function categoryCountsForNode(label) {
+      return categoryMap.get(normalizeKey(label)) || null;
+    }
+
+    function roleForNode(label) {
+      return roleMap.get(normalizeKey(label)) || { victim: 0, perpetrator: 0, complicit: 0, witness: 0, lawyer: 0, unknown: 1 };
+    }
+
+    function renderDocListForPerson(personLabel) {
+      const entry = personDocs.get(personLabel);
+      if (!entry || !entry.docs || !entry.docs.length) {
+        docList.innerHTML = `<strong>${personLabel}</strong><br/>No linked source files in index.`;
+        return;
+      }
+      const maxItems = 80;
+      const shown = entry.docs.slice(0, maxItems);
+      const links = shown
+        .map((d) => `<a href="${d.path}" target="_blank" rel="noopener">${d.doc_id}</a>`)
+        .join("<br/>");
+      const extra = entry.docs.length > maxItems ? `<br/>...and ${entry.docs.length - maxItems} more` : "";
+      docList.innerHTML = `<strong>${personLabel}</strong><br/>Files: ${entry.count}<br/>${links}${extra}`;
+    }
+
+    function passRoleFilter(roleObj, filterValue) {
+      if (filterValue === "all") return true;
+      if (filterValue === "victim") return roleObj.victim === 1;
+      if (filterValue === "perpetrator") return roleObj.perpetrator === 1;
+      if (filterValue === "complicit") return roleObj.complicit === 1;
+      if (filterValue === "witness") return roleObj.witness === 1;
+      if (filterValue === "lawyer") return roleObj.lawyer === 1;
+      if (filterValue === "unknown") return roleObj.victim !== 1 && roleObj.perpetrator !== 1 && roleObj.complicit !== 1 && roleObj.witness !== 1 && roleObj.lawyer !== 1;
+      if (filterValue === "labeled") return roleObj.victim === 1 || roleObj.perpetrator === 1 || roleObj.complicit === 1 || roleObj.witness === 1 || roleObj.lawyer === 1;
+      return false;
+    }
+
+    function topCategories(counts) {
+      if (!counts) return [];
+      const entries = Object.keys(CATEGORY_CONFIG)
+        .map((k) => [k, Number(counts[k] || 0)])
+        .filter(([, v]) => v > 0)
+        .filter(([k]) => k !== "victim" && k !== "lawyer")
+        .sort((a, b) => b[1] - a[1]);
+      return entries;
+    }
+
+    function roleLabel(roleObj) {
+      if (roleObj.victim === 1) return "victim";
+      if (roleObj.perpetrator === 1) return "perpetrator";
+      if (roleObj.complicit === 1) return "complicit";
+      if (roleObj.witness === 1) return "witness";
+      if (roleObj.lawyer === 1) return "lawyer";
+      return "unknown";
+    }
+
+    function pieSvgDataUri(parts, roleColor, size = 92) {
+      const key = JSON.stringify(parts) + `:${roleColor}:${size}`;
+      if (pieCache.has(key)) return pieCache.get(key);
+
+      if (!parts.length) {
+        const fallback = `data:image/svg+xml;utf8,${encodeURIComponent(`
+          <svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'>
+            <circle cx='${size/2}' cy='${size/2}' r='${size/2-5}' fill='#c65f3f' stroke='${roleColor}' stroke-width='6'/>
+          </svg>
+        `)}`;
+        pieCache.set(key, fallback);
+        return fallback;
+      }
+
+      const cx = size / 2;
+      const cy = size / 2;
+      const r = size / 2 - 2;
+      const total = parts.reduce((sum, p) => sum + p.value, 0);
+      let a0 = -Math.PI / 2;
+      const paths = [];
+
+      for (const part of parts) {
+        const frac = part.value / total;
+        const a1 = a0 + frac * Math.PI * 2;
+        const x0 = cx + r * Math.cos(a0);
+        const y0 = cy + r * Math.sin(a0);
+        const x1 = cx + r * Math.cos(a1);
+        const y1 = cy + r * Math.sin(a1);
+        const largeArc = a1 - a0 > Math.PI ? 1 : 0;
+        const d = `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${largeArc} 1 ${x1} ${y1} Z`;
+        paths.push(`<path d='${d}' fill='${part.color}' />`);
+        a0 = a1;
+      }
+
+      const svg = `
+        <svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'>
+          ${paths.join("\n")}
+          <circle cx='${cx}' cy='${cy}' r='${r}' fill='none' stroke='#ffffff' stroke-width='2' />
+          <circle cx='${cx}' cy='${cy}' r='${r+1}' fill='none' stroke='${roleColor}' stroke-width='6' />
+        </svg>
+      `;
+
+      const uri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+      pieCache.set(key, uri);
+      return uri;
+    }
+
+    function nodeStyleFor(label, roleObj) {
+      const counts = categoryCountsForNode(label);
+      const top = topCategories(counts);
+      const roleKey = roleLabel(roleObj);
+      const roleCfg = ROLE_CONFIG[roleKey] || ROLE_CONFIG.unknown;
+      if (!top.length) {
+        return {
+          shape: "dot",
+          color: roleCfg.color,
+          roleSummary: roleCfg.label,
+          totalHits: 0,
+        };
+      }
+
+      const parts = top.map(([k, value]) => ({ key: k, value, color: CATEGORY_CONFIG[k].color }));
+      const summary = top.map(([k, v]) => `${CATEGORY_CONFIG[k].label}: ${v}`).join(" | ");
+      const totalHits = top.reduce((s, [, v]) => s + v, 0);
+      return {
+        shape: "circularImage",
+        image: pieSvgDataUri(parts, roleCfg.color),
+        roleSummary: summary,
+        roleLabel: roleCfg.label,
+        totalHits,
+      };
+    }
+
+    function buildGraph() {
+      const minWeight = Number(minWeightInput.value);
+      const maxNodes = Number(maxNodesInput.value) || 1200;
+      const query = searchInput.value.trim().toLowerCase();
+      const roleFilter = roleFilterInput.value;
+      const minCatHits = Number(minCatHitsInput.value) || 0;
+      const selectedCategories = selectedCategoryKeys();
+
+      const sortedNodes = [...allNodes].sort((a, b) => b.document_frequency - a.document_frequency);
+      let selectedNodes = sortedNodes.slice(0, maxNodes);
+
+      if (query) {
+        selectedNodes = selectedNodes.filter((n) => n.label.toLowerCase().includes(query));
+      }
+
+      selectedNodes = selectedNodes.filter((n) => {
+        if (minCatHits <= 0) return true;
+        const counts = categoryCountsForNode(n.label);
+        if (!counts) return false;
+        let sum = 0;
+        Object.keys(CATEGORY_CONFIG).forEach((k) => {
+          sum += Number(counts[k] || 0);
+        });
+        return sum >= minCatHits;
+      });
+
+      selectedNodes = selectedNodes.filter((n) => {
+        if (!selectedCategories.length) return false;
+        const counts = categoryCountsForNode(n.label);
+        if (!counts) return false;
+        return selectedCategories.some((k) => Number(counts[k] || 0) > 0);
+      });
+
+      selectedNodes = selectedNodes.filter((n) => passRoleFilter(roleForNode(n.label), roleFilter));
+
+      const nodeSet = new Set(selectedNodes.map((n) => n.id));
+
+      const filteredEdges = allEdges.filter((e) => {
+        return e.weight >= minWeight && nodeSet.has(e.source) && nodeSet.has(e.target);
+      });
+
+      const connected = new Set();
+      filteredEdges.forEach((e) => {
+        connected.add(e.source);
+        connected.add(e.target);
+      });
+
+      const categoryTotals = {};
+      Object.keys(CATEGORY_CONFIG).forEach((k) => { categoryTotals[k] = 0; });
+      const roleTotals = { perpetrator: 0, complicit: 0, victim: 0, witness: 0, lawyer: 0, unknown: 0 };
+
+      const nodesForRender = selectedNodes
+        .filter((n) => connected.has(n.id) || query)
+        .map((n) => {
+          const nodeRole = roleForNode(n.label);
+          const style = nodeStyleFor(n.label, nodeRole);
+          const counts = categoryCountsForNode(n.label);
+          const roleKey = roleLabel(nodeRole);
+          roleTotals[roleKey] += 1;
+          if (counts) {
+            Object.keys(CATEGORY_CONFIG).forEach((k) => {
+              categoryTotals[k] += Number(counts[k] || 0);
+            });
+          }
+
+          return {
+            id: n.id,
+            label: n.label,
+            value: n.document_frequency,
+            title: `${n.label}<br/>Document frequency: ${n.document_frequency}<br/>Role: ${style.roleLabel || "Unknown"}<br/>Categories: ${style.roleSummary}`,
+            shape: style.shape,
+            image: style.image,
+            color: style.color,
+          };
+        });
+
+      const visEdges = filteredEdges.map((e) => ({
+        from: e.source,
+        to: e.target,
+        value: e.weight,
+        title: `Co-occurrence: ${e.weight}`,
+        color: { color: "#9eb2bb", opacity: 0.42 },
+      }));
+
+      const data = {
+        nodes: new vis.DataSet(nodesForRender),
+        edges: new vis.DataSet(visEdges),
+      };
+
+      const options = {
+        autoResize: true,
+        interaction: {
+          hover: true,
+          tooltipDelay: 80,
+          hideEdgesOnDrag: true,
+        },
+        physics: {
+          enabled: true,
+          barnesHut: {
+            gravitationalConstant: -20000,
+            centralGravity: 0.12,
+            springLength: 160,
+            springConstant: 0.035,
+          },
+          stabilization: {
+            enabled: true,
+            iterations: 450,
+            updateInterval: 25,
+          },
+        },
+        nodes: {
+          shape: "dot",
+          scaling: {
+            min: 5,
+            max: 38,
+            label: {
+              enabled: true,
+              min: 12,
+              max: 22,
+              drawThreshold: 10,
+            },
+          },
+          font: {
+            face: "IBM Plex Sans",
+            color: "#1d2a2f",
+          },
+          borderWidth: 0,
+        },
+        edges: {
+          smooth: false,
+          scaling: { min: 0.4, max: 4 },
+        },
+      };
+
+      if (!network) {
+        network = new vis.Network(document.getElementById("network"), data, options);
+        network.on("click", (params) => {
+          if (!params.nodes || !params.nodes.length) return;
+          const nodeId = params.nodes[0];
+          const node = nodesForRender.find((n) => n.id === nodeId);
+          if (!node) return;
+          renderDocListForPerson(node.label);
+        });
+      } else {
+        network.setData(data);
+        network.setOptions(options);
+      }
+
+      const catSummary = Object.keys(CATEGORY_CONFIG)
+        .map((k) => `${CATEGORY_CONFIG[k].label}: <strong>${categoryTotals[k]}</strong>`)
+        .join(" | ");
+      const roleSummary = Object.keys(ROLE_CONFIG)
+        .map((k) => `${ROLE_CONFIG[k].label}: <strong>${roleTotals[k] || 0}</strong>`)
+        .join(" | ");
+
+      stats.innerHTML = [
+        `Loaded nodes: <strong>${nodesForRender.length}</strong>`,
+        `Loaded edges: <strong>${visEdges.length}</strong>`,
+        `Min edge weight: <strong>${minWeight}</strong>`,
+        `Role filter: <strong>${roleFilter}</strong>`,
+        `Category filter: <strong>${selectedCategories.join(", ") || "none"}</strong>`,
+        `Role totals in current view: ${roleSummary}`,
+        `Category totals in current view: ${catSummary}`,
+      ].join("<br/>");
+
+      setTimeout(() => network.fit({ animation: { duration: 350 } }), 120);
+    }
+
+    async function loadData() {
+      try {
+        const [nodesCsv, edgesCsv, categoriesCsv, rolesCsv, personDocsJson] = await Promise.all([
+          fetchTextWithFallback("nodes.csv"),
+          fetchTextWithFallback("edges.csv"),
+          fetchTextWithFallback("person_categories.csv"),
+          fetchTextWithFallback("person_roles.csv"),
+          fetchTextWithFallback("person_documents.json"),
+        ]);
+
+        allNodes = parseCsv(nodesCsv).map((r) => ({
+          id: r.id,
+          label: r.label,
+          document_frequency: Number(r.document_frequency || 0),
+        }));
+
+        allEdges = parseCsv(edgesCsv).map((r) => ({
+          source: r.source,
+          target: r.target,
+          weight: Number(r.weight || 0),
+        }));
+
+        const catRows = parseCsv(categoriesCsv);
+        categoryMap = new Map(
+          catRows.map((r) => [
+            normalizeKey(r.person),
+            {
+              doc_count: Number(r.doc_count || 0),
+              sex_trafficking: Number(r.sex_trafficking || 0),
+              rape: Number(r.rape || 0),
+              murder: Number(r.murder || 0),
+              cannibalism: Number(r.cannibalism || 0),
+              politics: Number(r.politics || 0),
+              victim: Number(r.victim || 0),
+              lawyer: Number(r.lawyer || 0),
+              science: Number(r.science || 0),
+              philanthropy: Number(r.philanthropy || 0),
+            },
+          ])
+        );
+
+        roleMap = new Map(
+          parseCsv(rolesCsv).map((r) => [
+            normalizeKey(r.person),
+            {
+              victim: Number(r.victim || 0),
+              perpetrator: Number(r.perpetrator || 0),
+              complicit: Number(r.complicit || 0),
+              witness: Number(r.witness || 0),
+              lawyer: Number(r.lawyer || 0),
+              unknown: Number(r.unknown || 0),
+            },
+          ])
+        );
+
+        const docsObj = JSON.parse(personDocsJson);
+        personDocs = new Map(Object.entries(docsObj));
+
+        renderLegend();
+        renderCategoryFilter();
+        buildGraph();
+      } catch (err) {
+        stats.innerHTML = `Could not load CSV files.<br/>Error: <code>${String(err.message || err)}</code>`;
+      }
+    }
+
+    document.getElementById("applyBtn").addEventListener("click", buildGraph);
+    document.getElementById("fitBtn").addEventListener("click", () => {
+      if (network) network.fit({ animation: true });
+    });
+    document.getElementById("stabilizeBtn").addEventListener("click", () => {
+      if (network) network.stabilize(300);
+    });
+
+    loadData();
+  </script>
+</body>
+</html>

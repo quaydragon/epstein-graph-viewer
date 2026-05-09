@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epstein Name Network</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.9/dist/dist/vis-network.min.css" />
+  <style>
+    :root {
+      --bg: #f6f4ee;
+      --panel: #ffffff;
+      --ink: #1d2a2f;
+      --muted: #5b6a70;
+      --accent: #0f6b66;
+      --edge: #9eb2bb;
+      --node: #c65f3f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 0%, #fff5e8 0%, var(--bg) 45%, #ecefe3 100%);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid #e6e2d8;
+      padding: 18px;
+      overflow: auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+
+    .control {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.86rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    input[type="range"], input[type="number"], input[type="text"], select {
+      width: 100%;
+    }
+
+    textarea,
+    input[type="number"], input[type="text"], select {
+      border: 1px solid #d3d8db;
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: 0.9rem;
+      background: #fff;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 84px;
+      resize: vertical;
+      font-family: inherit;
+      line-height: 1.3;
+    }
+
+    .value {
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-top: 4px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #5f6f78;
+    }
+
+    .stats {
+      margin-top: 14px;
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .doc-list {
+      margin-top: 12px;
+      border-top: 1px solid #e6e2d8;
+      padding-top: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .doc-list a {
+      color: #0b5ea8;
+      text-decoration: none;
+    }
+
+    .doc-list a:hover {
+      text-decoration: underline;
+    }
+
+    #network {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .note {
+      margin-top: 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    @media (max-width: 950px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+
+      .panel {
+        border-right: 0;
+        border-bottom: 1px solid #e6e2d8;
+      }
+
+      #network {
+        height: 70vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <h1>Epstein Name Network</h1>
+    <p class="sub">Interactive graph from <code>nodes.csv</code> and <code>edges.csv</code>. Drag, zoom, and click nodes for labels.</p>
+
+    <div class="control">
+      <label for="minWeight">Minimum edge weight</label>
+      <input id="minWeight" type="range" min="1" max="20" value="2" />
+      <div class="value" id="minWeightVal">2</div>
+    </div>
+
+    <div class="control">
+      <label for="minStrength">Minimum connection strength (weight / min node frequency)</label>
+      <input id="minStrength" type="range" min="0" max="1" step="0.01" value="0.08" />
+      <div class="value" id="minStrengthVal">0.08</div>
+    </div>
+
+    <div class="control">
+      <label for="maxNodes">Max nodes to render (top by document frequency)</label>
+      <input id="maxNodes" type="number" min="100" max="9000" step="100" value="1200" />
+    </div>
+
+    <div class="control">
+      <label for="search">Focus by name (contains)</label>
+      <input id="search" type="text" placeholder="e.g., clinton" />
+    </div>
+
+    <div class="control">
+      <label for="roleFilter">Role filter</label>
+      <select id="roleFilter">
+        <option value="all">All</option>
+        <option value="victim">Victim</option>
+        <option value="perpetrator">Perpetrator</option>
+        <option value="complicit">Complicit</option>
+        <option value="witness">Witness</option>
+        <option value="lawyer">Lawyer</option>
+        <option value="unknown">Unknown</option>
+        <option value="labeled">Any labeled role</option>
+      </select>
+    </div>
+
+    <div class="control">
+      <label for="victimList">Victim names (one per line, rendered blue)</label>
+      <textarea id="victimList" placeholder="Jane Doe&#10;Another Name"></textarea>
+    </div>
+
+    <div class="control">
+      <label for="perpList">Perpetrator names (one per line, rendered red)</label>
+      <textarea id="perpList" placeholder="Jeffrey Epstein">Jeffrey Epstein
+Ghislaine Maxwell</textarea>
+      <div class="value">Victims render blue, perpetrators render red, unlabeled render grey.</div>
+    </div>
+
+    <div class="btn-row">
+      <button id="applyBtn">Apply Filters</button>
+      <button id="fitBtn" class="secondary">Fit View</button>
+      <button id="stabilizeBtn" class="secondary">Stabilize</button>
+    </div>
+
+    <div class="stats" id="stats">Loading graph data...</div>
+    <div class="doc-list" id="docList">Click a node to view linked source files.</div>
+
+    <p class="note">
+      If data does not load when opening the file directly, run:<br />
+      <code>cd /Users/quaydragon/Documents/epstein/network_output && python3 -m http.server 8765 --bind 127.0.0.1</code><br />
+      then open <code>http://127.0.0.1:8765/network_view.html</code>
+    </p>
+  </section>
+
+  <div id="network"></div>
+
+  <script>
+    let allNodes = [];
+    let allEdges = [];
+    let roleMap = new Map();
+    let personDocs = new Map();
+    let network;
+
+    const minWeightInput = document.getElementById("minWeight");
+    const minWeightVal = document.getElementById("minWeightVal");
+    const minStrengthInput = document.getElementById("minStrength");
+    const minStrengthVal = document.getElementById("minStrengthVal");
+    const maxNodesInput = document.getElementById("maxNodes");
+    const searchInput = document.getElementById("search");
+    const roleFilterInput = document.getElementById("roleFilter");
+    const victimListInput = document.getElementById("victimList");
+    const perpListInput = document.getElementById("perpList");
+    const stats = document.getElementById("stats");
+    const docList = document.getElementById("docList");
+
+    minWeightInput.addEventListener("input", () => {
+      minWeightVal.textContent = minWeightInput.value;
+    });
+    minStrengthInput.addEventListener("input", () => {
+      minStrengthVal.textContent = Number(minStrengthInput.value).toFixed(2);
+    });
+
+    function parseCsv(text) {
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines.shift().split(",");
+      return lines.map((line) => {
+        const out = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (ch === "," && !inQuotes) {
+            out.push(cur);
+            cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        out.push(cur);
+        const obj = {};
+        header.forEach((h, idx) => {
+          obj[h] = out[idx] || "";
+        });
+        return obj;
+      });
+    }
+
+    async function fetchTextWithFallback(filename) {
+      const attempts = [
+        filename,
+        `./${filename}`,
+        `http://127.0.0.1:8765/${filename}`,
+      ];
+      let lastError = null;
+      for (const url of attempts) {
+        try {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) {
+            lastError = new Error(`HTTP ${res.status} for ${url}`);
+            continue;
+          }
+          return await res.text();
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error(`Failed to fetch ${filename}`);
+    }
+
+    function normalizeKey(value) {
+      return (value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function parseNameList(text) {
+      const out = [];
+      text.split(/\r?\n/).forEach((line) => {
+        const original = line.trim();
+        const key = normalizeKey(original);
+        if (key) out.push({ original, key });
+      });
+      return out;
+    }
+
+    function isListMatch(nodeLabel, listItems) {
+      const nodeKey = normalizeKey(nodeLabel);
+      if (!nodeKey) return false;
+      for (const item of listItems) {
+        if (!item.key) continue;
+        if (nodeKey === item.key) return true;
+        if (nodeKey.includes(item.key)) return true;
+        if (item.key.includes(nodeKey) && nodeKey.length >= 4) return true;
+      }
+      return false;
+    }
+
+    function classifyRole(label, victims, perpetrators) {
+      const isVictim = isListMatch(label, victims);
+      const isPerp = isListMatch(label, perpetrators);
+      const dbRoles = roleMap.get(normalizeKey(label)) || {};
+      const dbVictim = dbRoles.victim === 1;
+      const dbPerp = dbRoles.perpetrator === 1;
+      const dbComplicit = dbRoles.complicit === 1;
+      const dbWitness = dbRoles.witness === 1;
+      const dbLawyer = dbRoles.lawyer === 1;
+      const isVictimFinal = isVictim || dbVictim;
+      const isPerpFinal = isPerp || dbPerp;
+      const isComplicitFinal = dbComplicit;
+      const isWitnessFinal = dbWitness;
+      const isLawyerFinal = dbLawyer;
+      const role = isVictimFinal ? "victim" : (isPerpFinal ? "perpetrator" : (isComplicitFinal ? "complicit" : (isWitnessFinal ? "witness" : (isLawyerFinal ? "lawyer" : "unknown"))));
+      return { isVictim: isVictimFinal, isPerp: isPerpFinal, isComplicit: isComplicitFinal, isWitness: isWitnessFinal, isLawyer: isLawyerFinal, role };
+    }
+
+    function passRoleFilter(classified, filterValue) {
+      if (filterValue === "all") return true;
+      if (filterValue === "victim") return classified.isVictim;
+      if (filterValue === "perpetrator") return classified.isPerp;
+      if (filterValue === "complicit") return classified.isComplicit;
+      if (filterValue === "witness") return classified.isWitness;
+      if (filterValue === "lawyer") return classified.isLawyer;
+      if (filterValue === "unknown") return !classified.isVictim && !classified.isPerp && !classified.isComplicit && !classified.isWitness && !classified.isLawyer;
+      if (filterValue === "labeled") return classified.isVictim || classified.isPerp || classified.isComplicit || classified.isWitness || classified.isLawyer;
+      return false;
+    }
+
+    function renderDocListForPerson(personLabel) {
+      const entry = personDocs.get(personLabel);
+      if (!entry || !entry.docs || !entry.docs.length) {
+        docList.innerHTML = `<strong>${personLabel}</strong><br/>No linked source files in index.`;
+        return;
+      }
+      const maxItems = 80;
+      const shown = entry.docs.slice(0, maxItems);
+      const links = shown
+        .map((d) => `<a href="${d.path}" target="_blank" rel="noopener">${d.doc_id}</a>`)
+        .join("<br/>");
+      const extra = entry.docs.length > maxItems ? `<br/>...and ${entry.docs.length - maxItems} more` : "";
+      docList.innerHTML = `<strong>${personLabel}</strong><br/>Files: ${entry.count}<br/>${links}${extra}`;
+    }
+
+    function buildGraph() {
+      const minWeight = Number(minWeightInput.value);
+      const minStrength = Number(minStrengthInput.value);
+      const maxNodes = Number(maxNodesInput.value) || 1200;
+      const query = searchInput.value.trim().toLowerCase();
+      const roleFilter = roleFilterInput.value;
+      const victims = parseNameList(victimListInput.value);
+      const perpetrators = parseNameList(perpListInput.value);
+      const matchedVictimInputs = new Set();
+      const matchedPerpInputs = new Set();
+
+      const sortedNodes = [...allNodes].sort((a, b) => b.document_frequency - a.document_frequency);
+      let selectedNodes = sortedNodes.slice(0, maxNodes);
+
+      if (query) {
+        selectedNodes = selectedNodes.filter((n) => n.label.toLowerCase().includes(query));
+      }
+
+      const filteredByRole = selectedNodes.filter((n) => passRoleFilter(classifyRole(n.label, victims, perpetrators), roleFilter));
+      const nodeSet = new Set(filteredByRole.map((n) => n.id));
+      const nodeFreq = new Map(selectedNodes.map((n) => [n.id, n.document_frequency]));
+
+      const filteredEdges = allEdges.filter((e) => {
+        if (!nodeSet.has(e.source) || !nodeSet.has(e.target) || e.weight < minWeight) {
+          return false;
+        }
+        const srcFreq = nodeFreq.get(e.source) || 1;
+        const tgtFreq = nodeFreq.get(e.target) || 1;
+        const strength = e.weight / Math.min(srcFreq, tgtFreq);
+        return strength >= minStrength;
+      });
+
+      const connected = new Set();
+      filteredEdges.forEach((e) => {
+        connected.add(e.source);
+        connected.add(e.target);
+      });
+
+      const roleById = new Map();
+      filteredByRole.forEach((n) => {
+        const classified = classifyRole(n.label, victims, perpetrators);
+        roleById.set(n.id, classified);
+
+        const nodeKey = normalizeKey(n.label);
+        victims.forEach((v) => {
+          if (nodeKey.includes(v.key) || v.key.includes(nodeKey)) matchedVictimInputs.add(v.original);
+        });
+        perpetrators.forEach((p) => {
+          if (nodeKey.includes(p.key) || p.key.includes(nodeKey)) matchedPerpInputs.add(p.original);
+        });
+      });
+
+      const nodesForRender = filteredByRole
+        .filter((n) => {
+          const role = roleById.get(n.id) || { isVictim: false, isPerp: false, isComplicit: false, isWitness: false, isLawyer: false };
+          return connected.has(n.id) || query || role.isVictim || role.isPerp || role.isComplicit || role.isWitness || role.isLawyer;
+        })
+        .map((n) => {
+          const classified = roleById.get(n.id) || { isVictim: false, isPerp: false, isComplicit: false, isWitness: false, isLawyer: false, role: "unknown" };
+          const isVictim = classified.isVictim;
+          const isPerp = classified.isPerp;
+          const isComplicit = classified.isComplicit;
+          const isWitness = classified.isWitness;
+          const isLawyer = classified.isLawyer;
+          const role = classified.role;
+          const color = isVictim ? "#1f6fd6" : (isPerp ? "#c65f3f" : (isComplicit ? "#b22222" : (isWitness ? "#8b5cf6" : (isLawyer ? "#00bcd4" : "#9aa1a6"))));
+          return {
+            id: n.id,
+            label: n.label,
+            value: n.document_frequency,
+            title: `${n.label}<br/>Document frequency: ${n.document_frequency}<br/>Role: ${role}`,
+            color,
+          };
+        });
+
+      const visEdges = filteredEdges.map((e) => {
+        const srcFreq = nodeFreq.get(e.source) || 1;
+        const tgtFreq = nodeFreq.get(e.target) || 1;
+        const strength = e.weight / Math.min(srcFreq, tgtFreq);
+        return {
+          from: e.source,
+          to: e.target,
+          value: e.weight,
+          title: `Co-occurrence: ${e.weight}<br/>Strength: ${strength.toFixed(3)}`,
+          color: { color: "#9eb2bb", opacity: 0.45 },
+        };
+      });
+
+      const data = {
+        nodes: new vis.DataSet(nodesForRender),
+        edges: new vis.DataSet(visEdges),
+      };
+
+      const options = {
+        autoResize: true,
+        interaction: {
+          hover: true,
+          tooltipDelay: 80,
+          hideEdgesOnDrag: true,
+        },
+        physics: {
+          enabled: true,
+          barnesHut: {
+            gravitationalConstant: -20000,
+            centralGravity: 0.12,
+            springLength: 160,
+            springConstant: 0.035,
+          },
+          stabilization: {
+            enabled: true,
+            iterations: 500,
+            updateInterval: 25,
+          },
+        },
+        nodes: {
+          shape: "dot",
+          scaling: {
+            min: 4,
+            max: 35,
+            label: {
+              enabled: true,
+              min: 12,
+              max: 22,
+              drawThreshold: 10,
+            },
+          },
+          font: {
+            face: "IBM Plex Sans",
+            color: "#1d2a2f",
+          },
+          borderWidth: 0,
+        },
+        edges: {
+          smooth: false,
+          scaling: {
+            min: 0.4,
+            max: 4,
+          },
+        },
+      };
+
+      if (!network) {
+        network = new vis.Network(document.getElementById("network"), data, options);
+        network.on("click", (params) => {
+          if (!params.nodes || !params.nodes.length) return;
+          const nodeId = params.nodes[0];
+          const node = nodesForRender.find((n) => n.id === nodeId);
+          if (!node) return;
+          renderDocListForPerson(node.label);
+        });
+      } else {
+        network.setData(data);
+        network.setOptions(options);
+      }
+
+      const victimCount = nodesForRender.filter((n) => n.color === "#1f6fd6").length;
+      const perpCount = nodesForRender.filter((n) => n.color === "#c65f3f").length;
+      const complicitCount = nodesForRender.filter((n) => n.color === "#b22222").length;
+      const witnessCount = nodesForRender.filter((n) => n.color === "#8b5cf6").length;
+      const lawyerCount = nodesForRender.filter((n) => n.color === "#00bcd4").length;
+      const unknownCount = nodesForRender.filter((n) => n.color === "#9aa1a6").length;
+      const victimProvided = victims.length;
+      const perpProvided = perpetrators.length;
+      stats.innerHTML = [
+        `Loaded nodes: <strong>${nodesForRender.length}</strong>`,
+        `Loaded edges: <strong>${visEdges.length}</strong>`,
+        `Min edge weight: <strong>${minWeight}</strong>`,
+        `Min connection strength: <strong>${minStrength.toFixed(2)}</strong>`,
+        `Role filter: <strong>${roleFilter}</strong>`,
+        `Node colors: <strong style="color:#c65f3f">${perpCount} red</strong> / <strong style="color:#b22222">${complicitCount} dark-red</strong> / <strong style="color:#1f6fd6">${victimCount} blue</strong> / <strong style="color:#8b5cf6">${witnessCount} purple</strong> / <strong style="color:#00bcd4">${lawyerCount} cyan</strong> / <strong style="color:#9aa1a6">${unknownCount} grey</strong>`,
+        `Victim entries matched: <strong>${matchedVictimInputs.size}/${victimProvided}</strong> | Perp entries matched: <strong>${matchedPerpInputs.size}/${perpProvided}</strong>`,
+      ].join("<br/>");
+
+      setTimeout(() => network.fit({ animation: { duration: 350 } }), 150);
+    }
+
+    async function loadData() {
+      try {
+        const [nodesCsv, edgesCsv, rolesCsv, personDocsJson] = await Promise.all([
+          fetchTextWithFallback("nodes.csv"),
+          fetchTextWithFallback("edges.csv"),
+          fetchTextWithFallback("person_roles.csv"),
+          fetchTextWithFallback("person_documents.json"),
+        ]);
+
+        allNodes = parseCsv(nodesCsv).map((r) => ({
+          id: r.id,
+          label: r.label,
+          document_frequency: Number(r.document_frequency || 0),
+        }));
+
+        allEdges = parseCsv(edgesCsv).map((r) => ({
+          source: r.source,
+          target: r.target,
+          weight: Number(r.weight || 0),
+        }));
+
+        roleMap = new Map(
+          parseCsv(rolesCsv).map((r) => [
+            normalizeKey(r.person),
+            {
+              victim: Number(r.victim || 0),
+              perpetrator: Number(r.perpetrator || 0),
+              complicit: Number(r.complicit || 0),
+              witness: Number(r.witness || 0),
+              lawyer: Number(r.lawyer || 0),
+              unknown: Number(r.unknown || 0),
+            },
+          ])
+        );
+
+        const docsObj = JSON.parse(personDocsJson);
+        personDocs = new Map(Object.entries(docsObj));
+
+        buildGraph();
+      } catch (err) {
+        stats.innerHTML = `Could not load CSV files from this page context.<br/>Error: <code>${String(err.message || err)}</code>`;
+      }
+    }
+
+    document.getElementById("applyBtn").addEventListener("click", buildGraph);
+    document.getElementById("fitBtn").addEventListener("click", () => {
+      if (network) network.fit({ animation: true });
+    });
+    document.getElementById("stabilizeBtn").addEventListener("click", () => {
+      if (network) network.stabilize(300);
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
