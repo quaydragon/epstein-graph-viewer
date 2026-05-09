@@ -210,16 +210,36 @@
 
     @media (max-width: 980px) {
       body {
+        height: 100svh;
+        min-height: 100svh;
         grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
+        grid-template-rows: minmax(0, 42svh) minmax(0, 1fr);
       }
 
       .panel {
         border-right: 0;
         border-bottom: 1px solid #e6e2d8;
+        max-height: 42svh;
+        overflow: auto;
       }
 
-      #network { height: 70vh; }
+      .doc-list {
+        max-height: 18svh;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      #network {
+        height: 100%;
+        min-height: 58svh;
+      }
+
+      .desktop-banner {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+      }
     }
   </style>
 </head>
