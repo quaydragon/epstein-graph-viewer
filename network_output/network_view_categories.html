@@ -318,6 +318,7 @@
     let categoryMap = new Map();
     let roleMap = new Map();
     let personDocs = new Map();
+    let personSummaries = new Map();
     let network;
     const pieCache = new Map();
 
@@ -462,6 +463,7 @@
       const roleKey = roleLabel(roleObj);
       const roleCfg = ROLE_CONFIG[roleKey] || ROLE_CONFIG.unknown;
       const top = topCategories(counts);
+      const summaryEntry = personSummaries.get(personLabel);
 
       const lines = [
         `<strong>${escapeHtml(personLabel)}</strong>`,
@@ -472,7 +474,9 @@
         lines.push(`Documents in corpus: <strong>${Number(counts.doc_count || 0)}</strong>`);
       }
 
-      if (top.length) {
+      if (summaryEntry && summaryEntry.summary) {
+        lines.push(`<br/>${escapeHtml(summaryEntry.summary)}`);
+      } else if (top.length) {
         const summary = top
           .map(([k, v]) => `${CATEGORY_CONFIG[k].label}: <strong>${v}</strong>`)
           .join(" | ");
@@ -481,7 +485,7 @@
         lines.push("Heuristic allegation summary: none matched in current category scan.");
       }
 
-      lines.push("These are keyword-based allegation/context signals, not adjudicated findings.");
+      lines.push("These are document-derived allegation/context signals, not adjudicated findings.");
       return lines.join("<br/>");
     }
 
@@ -784,12 +788,13 @@
 
     async function loadData() {
       try {
-        const [nodesCsv, edgesCsv, categoriesCsv, rolesCsv, personDocsJson] = await Promise.all([
+        const [nodesCsv, edgesCsv, categoriesCsv, rolesCsv, personDocsJson, personSummariesJson] = await Promise.all([
           fetchTextWithFallback("nodes.csv"),
           fetchTextWithFallback("edges.csv"),
           fetchTextWithFallback("person_categories.csv"),
           fetchTextWithFallback("person_roles.csv"),
           fetchTextWithFallback("person_documents.json"),
+          fetchTextWithFallback("person_summaries.json"),
         ]);
 
         allNodes = parseCsv(nodesCsv).map((r) => ({
@@ -839,6 +844,9 @@
 
         const docsObj = JSON.parse(personDocsJson);
         personDocs = new Map(Object.entries(docsObj));
+
+        const summariesObj = JSON.parse(personSummariesJson);
+        personSummaries = new Map(Object.entries(summariesObj));
 
         renderLegend();
         renderCategoryFilter();

@@ -12,6 +12,7 @@ SITE_FILES = [
     "person_categories.csv",
     "person_roles.csv",
     "person_documents.json",
+    "person_summaries.json",
 ]
 
 
