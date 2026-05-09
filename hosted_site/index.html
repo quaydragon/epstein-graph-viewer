@@ -474,15 +474,19 @@
         lines.push(`Documents in corpus: <strong>${Number(counts.doc_count || 0)}</strong>`);
       }
 
+      if (summaryEntry && summaryEntry.adjudicated) {
+        lines.push(`<br/><strong>Adjudicated / proven</strong><br/>${escapeHtml(summaryEntry.adjudicated)}`);
+      }
+
       if (summaryEntry && summaryEntry.summary) {
-        lines.push(`<br/>${escapeHtml(summaryEntry.summary)}`);
+        lines.push(`<br/><strong>Allegations made in linked documents</strong><br/>${escapeHtml(summaryEntry.summary)}`);
       } else if (top.length) {
         const summary = top
           .map(([k, v]) => `${CATEGORY_CONFIG[k].label}: <strong>${v}</strong>`)
           .join(" | ");
-        lines.push(`Heuristic allegation summary: ${summary}`);
+        lines.push(`<br/><strong>Allegations made in linked documents</strong><br/>Heuristic category tags: ${summary}`);
       } else {
-        lines.push("Heuristic allegation summary: none matched in current category scan.");
+        lines.push("<br/><strong>Allegations made in linked documents</strong><br/>None matched in the current extracted-text scan.");
       }
 
       lines.push("These are document-derived allegation/context signals, not adjudicated findings.");
